@@ -1,12 +1,13 @@
 """Storyboard generator: stdlib web server + local Ollama. Run: python app.py, open http://localhost:8000"""
 import json
+import os
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-MODEL = "llama3.2:3b"  # swap for "llama3.2:1b" on slow machines
-OLLAMA_URL = "http://localhost:11434/api/chat"
+MODEL = os.environ.get("MODEL", "llama3.2:3b")  # "llama3.2:1b" on slow machines
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434") + "/api/chat"
 HERE = Path(__file__).parent
 FIELDS = ["main_character", "reveal", "supporting_1", "supporting_2", "plot", "theme"]
 
@@ -128,4 +129,4 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print("Storyboard app on http://localhost:8000")
-    ThreadingHTTPServer(("127.0.0.1", 8000), Handler).serve_forever()
+    ThreadingHTTPServer((os.environ.get("HOST", "127.0.0.1"), 8000), Handler).serve_forever()
