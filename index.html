@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboard Maker</title>
+<style>
+  :root { --bg:#f6f4ef; --fg:#1d1b18; --card:#fff; --muted:#6b665e; --accent:#b4432d; --line:#ddd6c8; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16140f; --fg:#eee8dc; --card:#221f19; --muted:#a39c8f; --accent:#e0775f; --line:#3a352c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); }
+  form { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:14px; color:var(--muted); }
+  input { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); }
+  .buttons { grid-column: 1 / -1; display:flex; gap:8px; }
+  button { font:inherit; padding:8px 16px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.alt { background:transparent; color:var(--accent); }
+  button:disabled { opacity:.5; cursor:wait; }
+  #status { margin: 16px 0; color: var(--muted); }
+  #status.err { color: var(--accent); }
+  #board { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .panel .n { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .panel h3 { margin:4px 0 8px; font-size:17px; }
+  .panel p { margin:0 0 8px; }
+  .panel.ending { grid-column: 1 / -1; border-color: var(--accent); }
+  .panel.ending strong { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Storyboard Maker</h1>
+  <p class="sub">Pick from the presets or type your own. Mix and match anything.</p>
+
+  <form id="f">
+    <label>Main character <input name="main_character" list="main_characters" required></label>
+    <label>Revealed at the end (main character…) <input name="reveal" list="reveals" required></label>
+    <label>Supporting character 1 <input name="supporting_1" list="supporting_characters" required></label>
+    <label>Supporting character 2 <input name="supporting_2" list="supporting_characters" required></label>
+    <label>Plot <input name="plot" list="plots" required></label>
+    <label>Theme <input name="theme" list="themes" required></label>
+    <div class="buttons">
+      <button type="submit" id="go">Create storyboard</button>
+      <button type="button" class="alt" id="rand">Randomize</button>
+    </div>
+  </form>
+
+  <div id="status" role="status"></div>
+  <h2 id="title"></h2>
+  <div id="board"></div>
+</main>
+
+<datalist id="main_characters"></datalist>
+<datalist id="reveals"></datalist>
+<datalist id="supporting_characters"></datalist>
+<datalist id="plots"></datalist>
+<datalist id="themes"></datalist>
+
+<script>
+const f = document.getElementById("f"), statusEl = document.getElementById("status"),
+      board = document.getElementById("board"), titleEl = document.getElementById("title");
+const pools = { main_character: "main_characters", reveal: "reveals", supporting_1: "supporting_characters",
+                supporting_2: "supporting_characters", plot: "plots", theme: "themes" };
+let data = {};
+
+fetch("/data.json").then(r => r.json()).then(d => {
+  data = d;
+  for (const [id, items] of Object.entries(d))
+    document.getElementById(id).append(...items.map(v => Object.assign(document.createElement("option"), { value: v })));
+});
+
+const pick = a => a[Math.floor(Math.random() * a.length)];
+document.getElementById("rand").onclick = () => {
+  for (const [field, pool] of Object.entries(pools)) f.elements[field].value = pick(data[pool]);
+  while (f.elements.supporting_2.value === f.elements.supporting_1.value)
+    f.elements.supporting_2.value = pick(data.supporting_characters);
+};
+
+function panel(label, title, lines, cls = "") {
+  const el = document.createElement("div");
+  el.className = "panel " + cls;
+  const n = document.createElement("div"); n.className = "n"; n.textContent = label;
+  const h = document.createElement("h3"); h.textContent = title;
+  el.append(n, h);
+  for (const [k, v] of lines) {
+    const p = document.createElement("p");
+    if (k) { const s = document.createElement("strong"); s.textContent = k + ": "; p.append(s); }
+    p.append(v);
+    el.append(p);
+  }
+  return el;
+}
+
+f.onsubmit = async e => {
+  e.preventDefault();
+  const go = document.getElementById("go");
+  go.disabled = true; board.replaceChildren(); titleEl.textContent = "";
+  statusEl.className = ""; statusEl.textContent = "Generating with the local model… (can take a minute on CPU)";
+  try {
+    const r = await fetch("/storyboard", { method: "POST", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify(Object.fromEntries(new FormData(f))) });
+    const b = await r.json();
+    if (!r.ok) throw new Error(b.error);
+    titleEl.textContent = b.title || "Untitled";
+    b.scenes.forEach((s, i) => board.append(panel(`Scene ${i + 1}`, s.title, [["", s.description]])));
+    board.append(panel("Ending", "The Reveal", [["", b.ending.description], ["Reveal", b.ending.reveal],
+                                                ["Cliffhanger", b.ending.cliffhanger]], "ending"));
+    statusEl.textContent = "";
+  } catch (err) {
+    statusEl.className = "err"; statusEl.textContent = "Error: " + err.message;
+  } finally { go.disabled = false; }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "main_characters": ["Mara Voss", "Eli Tanaka", "Captain Juno Reyes", "Oswin Hart", "Priya Kaur"],
+  "reveals": [
+    "is the ghost everyone has been searching for",
+    "secretly caused the disaster they are trying to fix",
+    "is the long-lost heir to the throne",
+    "has been an android all along",
+    "made a deal with the villain years ago"
+  ],
+  "supporting_characters": ["Theo Black", "Nadia Okafor", "Brother Fennick", "Lark", "Dr. Selene Ashe", "Rusty the mechanic"],
+  "plots": [
+    "a heist to steal a map from a floating city",
+    "a small town where people vanish every full moon",
+    "a race across a desert to deliver a cure",
+    "a space station losing power one deck at a time",
+    "a royal tournament where losing means exile"
+  ],
+  "themes": ["trust and betrayal", "the cost of ambition", "found family", "identity", "redemption"]
+}
